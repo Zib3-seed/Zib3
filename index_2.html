@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Zib3 🌱</title>
+  <style>
+    :root{
+      --bg0:#020203;
+      --bg1:#070809;
+      --ink:rgba(245,245,245,.92);
+      --dim:rgba(245,245,245,.34);
+      --accent:rgba(190,255,210,.85);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      overflow:hidden;
+      color:var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", sans-serif;
+      background:
+        radial-gradient(1100px 900px at 50% 45%, rgba(16,20,18,.55), transparent 55%),
+        radial-gradient(900px 700px at 50% 60%, rgba(8,10,12,.85), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg0));
+    }
+    body::before{
+      content:"";
+      position:fixed; inset:-60px;
+      background:
+        radial-gradient(circle at 14% 18%, rgba(255,255,255,.05), transparent 46%),
+        radial-gradient(circle at 82% 78%, rgba(255,255,255,.035), transparent 44%),
+        radial-gradient(circle at 48% 62%, rgba(255,255,255,.02), transparent 40%);
+      filter: blur(16px);
+      opacity:.85;
+      pointer-events:none;
+    }
+
+    canvas#dust{
+      position:fixed; inset:0;
+      width:100%; height:100%;
+      pointer-events:none;
+      opacity:.90;
+      z-index:0;
+    }
+
+    .hud{position:fixed; inset:0; pointer-events:none; z-index:1;}
+
+    .brand{
+      position:absolute; top:18px; left:20px;
+      display:flex; gap:10px; align-items:baseline;
+      letter-spacing:2.2px;
+      color:rgba(245,245,245,.72);
+      font-size:18px;
+      user-select:none;
+      text-shadow: 0 0 18px rgba(190,255,210,.08);
+    }
+    .brand b{color:rgba(245,245,245,.95); font-weight:760; letter-spacing:2.6px;}
+    .brand .spr{opacity:.92; filter: drop-shadow(0 0 10px rgba(190,255,210,.12));}
+
+    /* ✅ Fix Android/WebView : hauteur explicite */
+    .center{
+      position:absolute; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:min(560px, 92vw);
+      height:min(560px, 92vw);
+      display:grid; place-items:center;
+    }
+
+    .myst{
+      position:absolute; bottom:34px; left:50%;
+      transform:translateX(-50%);
+      color:rgba(245,245,245,.34);
+      font-size:18px;
+      letter-spacing:2.4px;
+      user-select:none;
+      text-shadow: 0 0 18px rgba(255,255,255,.06);
+    }
+    .time{
+      position:absolute; bottom:10px; left:50%;
+      transform:translateX(-50%);
+      color:rgba(245,245,245,.45);
+      font-size:12px;
+      letter-spacing:2.2px;
+      font-variant-numeric: tabular-nums;
+      user-select:none;
+      text-shadow: 0 0 18px rgba(255,255,255,.05);
+    }
+
+    svg#scene{
+      width:100%;
+      height:100%;
+      min-height:280px;
+      display:block;
+      filter: drop-shadow(0 20px 70px rgba(0,0,0,.65));
+    }
+  </style>
+</head>
+<body>
+  <canvas id="dust"></canvas>
+
+  <div class="hud">
+    <div class="brand"><b>Zib3</b><span class="spr">🌱</span></div>
+
+    <div class="center">
+      <svg id="scene" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <mask id="progressMask">
+            <rect width="600" height="600" fill="black"/>
+            <circle id="progressStroke"
+                    cx="300" cy="300" r="210"
+                    fill="none" stroke="white"
+                    stroke-width="8"
+                    stroke-linecap="round"
+                    stroke-dasharray="1320"
+                    stroke-dashoffset="1320"/>
+          </mask>
+
+          <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.2" result="b"/>
+            <feColorMatrix in="b" type="matrix"
+              values="1 0 0 0 0
+                      0 1 0 0 0
+                      0 0 1 0 0
+                      0 0 0 .55 0"/>
+            <feMerge>
+              <feMergeNode/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+
+          <filter id="watcherGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.4" result="b"/>
+            <feColorMatrix in="b" type="matrix"
+              values="1 0 0 0 0
+                      0 1 0 0 0
+                      0 0 1 0 0
+                      0 0 0 .32 0"/>
+            <feMerge>
+              <feMergeNode/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+
+        <!-- Moiré -->
+        <g id="moire" transform="translate(300 300)"></g>
+
+        <!-- Base ring -->
+        <circle cx="300" cy="300" r="210" fill="none" stroke="rgba(245,245,245,.08)" stroke-width="8"/>
+
+        <!-- Progress ring -->
+        <g mask="url(#progressMask)">
+          <circle cx="300" cy="300" r="210" fill="none" stroke="rgba(245,245,245,.45)" stroke-width="8" filter="url(#softGlow)"/>
+        </g>
+
+        <!-- Seed + sprout -->
+        <g id="seedGroup" transform="translate(300 320)">
+          <path
+            d="M -18 6
+               C -26 -6, -18 -22, 0 -22
+               C 18 -22, 26 -6, 18 6
+               C 12 20, -12 20, -18 6 Z"
+            fill="rgba(245,245,245,.88)"/>
+          <ellipse cx="-6" cy="-6" rx="7" ry="4" fill="rgba(0,0,0,.18)"/>
+
+          <path id="stem"
+                d="M 0 -18 C 2 -40, 6 -70, 0 -96"
+                fill="none"
+                stroke="rgba(190,255,210,.82)"
+                stroke-width="3.2"
+                stroke-linecap="round"
+                filter="url(#softGlow)"
+                opacity="0.0"/>
+
+          <ellipse id="leafL" cx="-14" cy="-78" rx="12" ry="6"
+                   fill="rgba(190,255,210,.70)" transform="rotate(-22 -14 -78)" opacity="0.0"/>
+          <ellipse id="leafR" cx="18" cy="-84" rx="13" ry="6.5"
+                   fill="rgba(190,255,210,.66)" transform="rotate(28 18 -84)" opacity="0.0"/>
+        </g>
+
+        <!-- Crown -->
+        <g id="watchers"></g>
+      </svg>
+
+      <div class="myst">芽…</div>
+      <div class="time" id="timeText">—</div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // -------------------------
+      // Countdown GLOBAL (fixe)
+      // Démarre le 24/12/2025 à 00:00 (Europe/Paris)
+      // Durée: 7 jours -> fin le 31/12/2025 à 00:00 (Paris)
+      // -------------------------
+      const START = Date.parse("2025-12-24T00:00:00+01:00");
+      const TOTAL = 7 * 24 * 60 * 60 * 1000;
+
+      // -------------------------
+      // Helpers
+      // -------------------------
+      const clamp = (v,min,max)=>Math.max(min, Math.min(max,v));
+      const pad2 = (n)=>String(n).padStart(2,"0");
+      function hashNoise(t){
+        const x = Math.sin(t * 12.9898) * 43758.5453;
+        return x - Math.floor(x);
+      }
+
+      // -------------------------
+      // Refs (null-safe)
+      // -------------------------
+      const timeText = document.getElementById("timeText");
+      const moire = document.getElementById("moire");
+      const progressStroke = document.getElementById("progressStroke");
+      const seedGroup = document.getElementById("seedGroup");
+      const stem = document.getElementById("stem");
+      const leafL = document.getElementById("leafL");
+      const leafR = document.getElementById("leafR");
+      const watchersRoot = document.getElementById("watchers");
+
+      // Progress ring init
+      const ringLen = 1320;
+      if (progressStroke){
+        progressStroke.setAttribute("stroke-dasharray", ringLen);
+        progressStroke.setAttribute("stroke-dashoffset", ringLen);
+      }
+
+      // -------------------------
+      // Build moiré (illusion)
+      // -------------------------
+      function buildMoire(){
+        if(!moire) return;
+        while(moire.firstChild) moire.removeChild(moire.firstChild);
+
+        const SEGMENTS = 260, R1 = 228, R2 = 240;
+        for(let i=0;i<SEGMENTS;i++){
+          const a = (i / SEGMENTS) * Math.PI * 2;
+          const len = (i % 9 === 0) ? 10 : 7;
+
+          const x1 = Math.cos(a) * (R1), y1 = Math.sin(a) * (R1);
+          const x2 = Math.cos(a) * (R1 + len), y2 = Math.sin(a) * (R1 + len);
+          const l1 = document.createElementNS("http://www.w3.org/2000/svg","line");
+          l1.setAttribute("x1", x1.toFixed(2)); l1.setAttribute("y1", y1.toFixed(2));
+          l1.setAttribute("x2", x2.toFixed(2)); l1.setAttribute("y2", y2.toFixed(2));
+          l1.setAttribute("stroke", "rgba(245,245,245,.22)");
+          l1.setAttribute("stroke-width", (i%13===0)? "2" : "1.4");
+          l1.setAttribute("stroke-linecap","round");
+          l1.style.opacity = String(0.08 + Math.random()*0.18);
+          moire.appendChild(l1);
+
+          const b = a + 0.0105;
+          const x3 = Math.cos(b) * (R2), y3 = Math.sin(b) * (R2);
+          const x4 = Math.cos(b) * (R2 + (len-2)), y4 = Math.sin(b) * (R2 + (len-2));
+          const l2 = document.createElementNS("http://www.w3.org/2000/svg","line");
+          l2.setAttribute("x1", x3.toFixed(2)); l2.setAttribute("y1", y3.toFixed(2));
+          l2.setAttribute("x2", x4.toFixed(2)); l2.setAttribute("y2", y4.toFixed(2));
+          l2.setAttribute("stroke", "rgba(245,245,245,.18)");
+          l2.setAttribute("stroke-width", (i%17===0)? "2" : "1.2");
+          l2.setAttribute("stroke-linecap","round");
+          l2.style.opacity = String(0.06 + Math.random()*0.16);
+          moire.appendChild(l2);
+        }
+      }
+
+      // -------------------------
+      // Dust canvas
+      // -------------------------
+      const canvas = document.getElementById("dust");
+      const ctx = canvas && canvas.getContext ? canvas.getContext("2d", { alpha: true }) : null;
+      let W=0, H=0, dpr=1;
+      const pts = [];
+
+      function resize(){
+        if(!canvas || !ctx) return;
+        dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        W = canvas.width = Math.floor(innerWidth * dpr);
+        H = canvas.height = Math.floor(innerHeight * dpr);
+        canvas.style.width = innerWidth + "px";
+        canvas.style.height = innerHeight + "px";
+
+        pts.length = 0;
+        const count = Math.floor((innerWidth * innerHeight) / 21000);
+        for(let i=0;i<count;i++){
+          pts.push({
+            x: Math.random()*W,
+            y: Math.random()*H,
+            r: (0.8 + Math.random()*2.2) * dpr,
+            a: 0.14 + Math.random()*0.48,
+            drift: (Math.random()*0.20 + 0.05) * dpr
+          });
+        }
+      }
+
+      function drawDust(){
+        if(!ctx) return;
+        ctx.clearRect(0,0,W,H);
+        for(const p of pts){
+          p.y += p.drift;
+          if(p.y > H + 12*dpr){ p.y = -12*dpr; p.x = Math.random()*W; }
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(245,245,245,${p.a})`;
+          ctx.fill();
+          if(Math.random() < 0.0022){
+            ctx.fillRect(p.x, p.y, p.r*0.85, p.r*0.85);
+          }
+        }
+        requestAnimationFrame(drawDust);
+      }
+
+      // -------------------------
+      // Watchers crown
+      // -------------------------
+      const WATCHER_COUNT = 7;
+      const WATCHER_R = 214;
+      const watchers = [];
+
+      function buildWatchers(){
+        if(!watchersRoot) return;
+        while(watchersRoot.firstChild) watchersRoot.removeChild(watchersRoot.firstChild);
+        watchers.length = 0;
+
+        const ns = "http://www.w3.org/2000/svg";
+
+        function makeEye(i){
+          const g = document.createElementNS(ns,"g");
+          g.setAttribute("opacity","0");
+
+          const angle = (i / WATCHER_COUNT) * 360;
+          g.setAttribute("transform", `translate(300 300) rotate(${angle}) translate(0 -${WATCHER_R}) scale(1.28)`);
+
+          const lid = document.createElementNS(ns,"g");
+          lid.setAttribute("filter","url(#watcherGlow)");
+
+          const outline = document.createElementNS(ns,"ellipse");
+          outline.setAttribute("cx","0"); outline.setAttribute("cy","0");
+          outline.setAttribute("rx","22"); outline.setAttribute("ry","12");
+          outline.setAttribute("fill","rgba(0,0,0,.32)");
+          outline.setAttribute("stroke","rgba(245,245,245,.28)");
+          outline.setAttribute("stroke-width","1.2");
+
+          const sclera = document.createElementNS(ns,"ellipse");
+          sclera.setAttribute("cx","0"); sclera.setAttribute("cy","0");
+          sclera.setAttribute("rx","18"); sclera.setAttribute("ry","9");
+          sclera.setAttribute("fill","rgba(245,245,245,.10)");
+
+          const iris = document.createElementNS(ns,"circle");
+          iris.setAttribute("cx","0"); iris.setAttribute("cy","0");
+          iris.setAttribute("r","6.5");
+          iris.setAttribute("fill","rgba(245,245,245,.18)");
+
+          const pupil = document.createElementNS(ns,"circle");
+          pupil.setAttribute("cx","0"); pupil.setAttribute("cy","0");
+          pupil.setAttribute("r","3.6");
+          pupil.setAttribute("fill","rgba(0,0,0,.86)");
+
+          const glint = document.createElementNS(ns,"circle");
+          glint.setAttribute("cx","-1.6"); glint.setAttribute("cy","-1.8");
+          glint.setAttribute("r","1.2");
+          glint.setAttribute("fill","rgba(245,245,245,.32)");
+
+          lid.appendChild(outline);
+          lid.appendChild(sclera);
+          lid.appendChild(iris);
+          lid.appendChild(pupil);
+          lid.appendChild(glint);
+
+          const lash1 = document.createElementNS(ns,"path");
+          lash1.setAttribute("d","M-10 -10 L-13 -14");
+          lash1.setAttribute("stroke","rgba(245,245,245,.14)");
+          lash1.setAttribute("stroke-width","1.2");
+          lash1.setAttribute("stroke-linecap","round");
+
+          const lash2 = document.createElementNS(ns,"path");
+          lash2.setAttribute("d","M0 -11 L0 -16");
+          lash2.setAttribute("stroke","rgba(245,245,245,.12)");
+          lash2.setAttribute("stroke-width","1.2");
+          lash2.setAttribute("stroke-linecap","round");
+
+          const lash3 = document.createElementNS(ns,"path");
+          lash3.setAttribute("d","M10 -10 L13 -14");
+          lash3.setAttribute("stroke","rgba(245,245,245,.14)");
+          lash3.setAttribute("stroke-width","1.2");
+          lash3.setAttribute("stroke-linecap","round");
+
+          g.appendChild(lid);
+          g.appendChild(lash1);
+          g.appendChild(lash2);
+          g.appendChild(lash3);
+
+          watchersRoot.appendChild(g);
+          return { g, lid, pupil, iris, glint, phase: Math.random()*1000 };
+        }
+
+        for(let i=0;i<WATCHER_COUNT;i++){
+          watchers.push(makeEye(i));
+        }
+      }
+
+      // -------------------------
+      // Animation
+      // -------------------------
+      function tick(tms){
+        const now = Date.now();
+
+        // Avant START -> freeze à 7 jours, progress=0
+        const elapsed = (now < START) ? 0 : clamp(now - START, 0, TOTAL);
+        const remaining = Math.max(0, TOTAL - elapsed);
+        const progress = elapsed / TOTAL; // 0..1
+        const urgency = Math.pow(progress, 2.2);
+
+        // Ring progression
+        if (progressStroke){
+          const dashOffset = (1 - progress) * ringLen;
+          progressStroke.setAttribute("stroke-dashoffset", dashOffset.toFixed(2));
+        }
+
+        // Timer texte
+        if (timeText){
+          const s = Math.floor(remaining / 1000);
+          const d = Math.floor(s / 86400);
+          const h = Math.floor((s % 86400) / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          const sec = s % 60;
+          timeText.textContent = `${pad2(d)}D ${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
+        }
+
+        // Moiré rotation (tourne toujours, un peu plus "vivant" quand ça a démarré)
+        if (moire){
+          const baseSpeed = 0.00026;            // lent avant
+          const extra = 0.00060 * urgency;      // accélère avec la progression
+          const rot = (tms * (baseSpeed + extra)) % (Math.PI*2);
+          moire.setAttribute("transform", `translate(300 300) rotate(${(rot*180/Math.PI).toFixed(3)})`);
+        }
+
+        // Graine respire (toujours, un peu plus quand ça progresse)
+        if (seedGroup){
+          const breath = 1 + (0.014 + 0.010*urgency) * Math.sin(tms/780);
+          seedGroup.setAttribute("transform", `translate(300 320) scale(${breath.toFixed(4)})`);
+        }
+
+        // Pousse : uniquement après démarrage (progress > 0)
+        if (stem){
+          const stemP = Math.max(0, (progress - 0.32) / 0.68);
+          stem.style.opacity = String(0.04 + 0.90 * stemP);
+        }
+        if (leafL && leafR){
+          const leafP = Math.max(0, (progress - 0.70) / 0.30);
+          const leafScale = 0.72 + 0.28*leafP;
+          const leafOpacity = 0.04 + 0.92*leafP;
+          leafL.style.opacity = String(leafOpacity);
+          leafR.style.opacity = String(leafOpacity);
+          leafL.setAttribute("transform", `rotate(-22 -14 -78) scale(${leafScale.toFixed(3)})`);
+          leafR.setAttribute("transform", `rotate(28 18 -84) scale(${leafScale.toFixed(3)})`);
+        }
+
+        // Yeux : quasi "fantômes" avant START, puis apparaissent progressivement après
+        if (watchersRoot && watchers.length){
+          // apparitions : 0 -> 1 à partir du démarrage, sinon presque invisible
+          const started = now >= START;
+          const appear = started ? clamp(progress / 0.55, 0, 1) : 0; // ils “arrivent” dans la première moitié
+          const baseAppear = (started ? (0.10 + 0.40*appear) : 0.03); // fantôme avant, visible après
+
+          const crownRot = ((tms*0.0011) % 360);
+          watchersRoot.setAttribute("transform", `rotate(${crownRot.toFixed(3)} 300 300)`);
+
+          for (const w of watchers){
+            const flicker = 0.02 * (hashNoise(Math.floor((tms+w.phase)/60)) - 0.5);
+            w.g.setAttribute("opacity", clamp(baseAppear + flicker, 0.02, 0.62).toFixed(3));
+
+            const lookAmp = 1.10 + 2.10*urgency;
+            const twitch = (hashNoise(Math.floor((tms+w.phase)/90)+3) - 0.5);
+            const twitch2 = (hashNoise(Math.floor((tms+w.phase)/120)+11) - 0.5);
+
+            const px = (Math.sin((tms+w.phase)/360)*0.55 + twitch*0.8) * lookAmp;
+            const py = (Math.cos((tms+w.phase)/440)*0.35 + twitch2*0.7) * (lookAmp*0.62);
+
+            w.pupil.setAttribute("cx", px.toFixed(2));
+            w.pupil.setAttribute("cy", py.toFixed(2));
+            w.iris.setAttribute("cx", (px*0.36).toFixed(2));
+            w.iris.setAttribute("cy", (py*0.36).toFixed(2));
+            w.glint.setAttribute("cx", (-1.6 + px*0.09).toFixed(2));
+            w.glint.setAttribute("cy", (-1.8 + py*0.09).toFixed(2));
+
+            // blink : très rare avant, un peu plus après
+            const blinkChance = (started ? (0.00062 + 0.00105*urgency) : 0.00015);
+            let blink = 1;
+            if (hashNoise(Math.floor((tms+w.phase)/41)) < blinkChance) {
+              const ph = ((tms+w.phase) % 210) / 210;
+              const close = ph < 0.5 ? (1 - ph*1.95) : (0.10 + (ph-0.5)*1.95);
+              blink = clamp(close, 0.10, 1);
+            }
+            w.lid.setAttribute("transform", `scale(1 ${blink.toFixed(3)})`);
+          }
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      // -------------------------
+      // Start (robust)
+      // -------------------------
+      function startAll(){
+        buildMoire();
+        buildWatchers();
+        resize();
+        requestAnimationFrame(drawDust);
+        requestAnimationFrame(tick);
+      }
+
+      window.addEventListener("resize", resize, { passive:true });
+
+      window.addEventListener("load", () => {
+        requestAnimationFrame(() => {
+          setTimeout(startAll, 80);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
