@@ -58,7 +58,7 @@
     .brand b{color:rgba(245,245,245,.95); font-weight:760; letter-spacing:2.6px;}
     .brand .spr{opacity:.92; filter: drop-shadow(0 0 10px rgba(190,255,210,.12));}
 
-    /* ✅ Fix Android/WebView : hauteur explicite, pas d'aspect-ratio */
+    /* ✅ Fix Android/WebView : hauteur explicite */
     .center{
       position:absolute; left:50%; top:50%;
       transform:translate(-50%,-50%);
@@ -154,7 +154,7 @@
           <circle cx="300" cy="300" r="210" fill="none" stroke="rgba(245,245,245,.45)" stroke-width="8" filter="url(#softGlow)"/>
         </g>
 
-        <!-- Seed -->
+        <!-- Seed + sprout -->
         <g id="seedGroup" transform="translate(300 320)">
           <path
             d="M -18 6
@@ -179,12 +179,12 @@
                    fill="rgba(190,255,210,.66)" transform="rotate(28 18 -84)" opacity="0.0"/>
         </g>
 
-        <!-- Crown of watchers -->
+        <!-- Crown -->
         <g id="watchers"></g>
       </svg>
 
       <div class="myst">芽…</div>
-      <div class="time" id="timeText">…</div>
+      <div class="time" id="timeText">—</div>
     </div>
   </div>
 
@@ -192,19 +192,17 @@
     (() => {
       "use strict";
 
-      // --- Safe storage (Android/iOS/private mode)
-      function safeStorage(){
-        try{
-          const k="__zib3__";
-          localStorage.setItem(k,"1");
-          localStorage.removeItem(k);
-          return localStorage;
-        }catch(e){
-          return null;
-        }
-      }
+      // -------------------------
+      // Countdown GLOBAL (fixe)
+      // Démarre le 24/12/2025 à 00:00 (Europe/Paris)
+      // Durée: 7 jours -> fin le 31/12/2025 à 00:00 (Paris)
+      // -------------------------
+      const START = Date.parse("2025-12-24T00:00:00+01:00");
+      const TOTAL = 7 * 24 * 60 * 60 * 1000;
 
-      // --- Helpers
+      // -------------------------
+      // Helpers
+      // -------------------------
       const clamp = (v,min,max)=>Math.max(min, Math.min(max,v));
       const pad2 = (n)=>String(n).padStart(2,"0");
       function hashNoise(t){
@@ -212,24 +210,9 @@
         return x - Math.floor(x);
       }
 
-      // --- Timing (local cycle)
-      const KEY = "zib3_cycle_crown_v3";
-      const TOTAL = 7 * 24 * 60 * 60 * 1000;
-
-      const store = safeStorage();
-      const now = Date.now();
-      let start = now;
-      if (store){
-        const v = Number(store.getItem(KEY));
-        if(v && v <= now && (now - v) <= 60*24*3600*1000){
-          start = v;
-        }else{
-          store.setItem(KEY, String(now));
-          start = now;
-        }
-      }
-
-      // --- Refs (null-safe)
+      // -------------------------
+      // Refs (null-safe)
+      // -------------------------
       const timeText = document.getElementById("timeText");
       const moire = document.getElementById("moire");
       const progressStroke = document.getElementById("progressStroke");
@@ -239,17 +222,18 @@
       const leafR = document.getElementById("leafR");
       const watchersRoot = document.getElementById("watchers");
 
-      // --- Progress ring init
+      // Progress ring init
       const ringLen = 1320;
       if (progressStroke){
         progressStroke.setAttribute("stroke-dasharray", ringLen);
         progressStroke.setAttribute("stroke-dashoffset", ringLen);
       }
 
-      // --- Build moiré
+      // -------------------------
+      // Build moiré (illusion)
+      // -------------------------
       function buildMoire(){
         if(!moire) return;
-        // avoid duplicates if re-init
         while(moire.firstChild) moire.removeChild(moire.firstChild);
 
         const SEGMENTS = 260, R1 = 228, R2 = 240;
@@ -282,7 +266,9 @@
         }
       }
 
-      // --- Dust canvas
+      // -------------------------
+      // Dust canvas
+      // -------------------------
       const canvas = document.getElementById("dust");
       const ctx = canvas && canvas.getContext ? canvas.getContext("2d", { alpha: true }) : null;
       let W=0, H=0, dpr=1;
@@ -326,8 +312,10 @@
         requestAnimationFrame(drawDust);
       }
 
-      // --- Watchers crown
-      const WATCHER_COUNT = 5;
+      // -------------------------
+      // Watchers crown
+      // -------------------------
+      const WATCHER_COUNT = 7;
       const WATCHER_R = 214;
       const watchers = [];
 
@@ -413,21 +401,25 @@
         }
       }
 
-      // --- Animation
+      // -------------------------
+      // Animation
+      // -------------------------
       function tick(tms){
-        const t = Date.now();
-        const elapsed = clamp(t - start, 0, TOTAL);
+        const now = Date.now();
+
+        // Avant START -> freeze à 7 jours, progress=0
+        const elapsed = (now < START) ? 0 : clamp(now - START, 0, TOTAL);
         const remaining = Math.max(0, TOTAL - elapsed);
-        const progress = elapsed / TOTAL;
+        const progress = elapsed / TOTAL; // 0..1
         const urgency = Math.pow(progress, 2.2);
 
-        // ring
+        // Ring progression
         if (progressStroke){
           const dashOffset = (1 - progress) * ringLen;
           progressStroke.setAttribute("stroke-dashoffset", dashOffset.toFixed(2));
         }
 
-        // time (niveau 1)
+        // Timer texte
         if (timeText){
           const s = Math.floor(remaining / 1000);
           const d = Math.floor(s / 86400);
@@ -437,21 +429,21 @@
           timeText.textContent = `${pad2(d)}D ${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
         }
 
-        // moiré rotation
+        // Moiré rotation (tourne toujours, un peu plus "vivant" quand ça a démarré)
         if (moire){
-          const baseSpeed = 0.00034;
-          const extra = 0.00060 * urgency;
+          const baseSpeed = 0.00026;            // lent avant
+          const extra = 0.00060 * urgency;      // accélère avec la progression
           const rot = (tms * (baseSpeed + extra)) % (Math.PI*2);
           moire.setAttribute("transform", `translate(300 300) rotate(${(rot*180/Math.PI).toFixed(3)})`);
         }
 
-        // seed breathing
+        // Graine respire (toujours, un peu plus quand ça progresse)
         if (seedGroup){
-          const breath = 1 + (0.016 + 0.010*urgency) * Math.sin(tms/780);
+          const breath = 1 + (0.014 + 0.010*urgency) * Math.sin(tms/780);
           seedGroup.setAttribute("transform", `translate(300 320) scale(${breath.toFixed(4)})`);
         }
 
-        // sprout
+        // Pousse : uniquement après démarrage (progress > 0)
         if (stem){
           const stemP = Math.max(0, (progress - 0.32) / 0.68);
           stem.style.opacity = String(0.04 + 0.90 * stemP);
@@ -466,18 +458,21 @@
           leafR.setAttribute("transform", `rotate(28 18 -84) scale(${leafScale.toFixed(3)})`);
         }
 
-        // watchers
+        // Yeux : quasi "fantômes" avant START, puis apparaissent progressivement après
         if (watchersRoot && watchers.length){
-          const baseAppear = 0.20 + 0.30 * clamp(progress / 0.65, 0, 1);
+          // apparitions : 0 -> 1 à partir du démarrage, sinon presque invisible
+          const started = now >= START;
+          const appear = started ? clamp(progress / 0.55, 0, 1) : 0; // ils “arrivent” dans la première moitié
+          const baseAppear = (started ? (0.10 + 0.40*appear) : 0.03); // fantôme avant, visible après
 
           const crownRot = ((tms*0.0011) % 360);
           watchersRoot.setAttribute("transform", `rotate(${crownRot.toFixed(3)} 300 300)`);
 
           for (const w of watchers){
             const flicker = 0.02 * (hashNoise(Math.floor((tms+w.phase)/60)) - 0.5);
-            w.g.setAttribute("opacity", clamp(baseAppear + flicker, 0.18, 0.62).toFixed(3));
+            w.g.setAttribute("opacity", clamp(baseAppear + flicker, 0.02, 0.62).toFixed(3));
 
-            const lookAmp = 1.35 + 2.15*urgency;
+            const lookAmp = 1.10 + 2.10*urgency;
             const twitch = (hashNoise(Math.floor((tms+w.phase)/90)+3) - 0.5);
             const twitch2 = (hashNoise(Math.floor((tms+w.phase)/120)+11) - 0.5);
 
@@ -491,7 +486,8 @@
             w.glint.setAttribute("cx", (-1.6 + px*0.09).toFixed(2));
             w.glint.setAttribute("cy", (-1.8 + py*0.09).toFixed(2));
 
-            const blinkChance = 0.00062 + 0.00105*urgency;
+            // blink : très rare avant, un peu plus après
+            const blinkChance = (started ? (0.00062 + 0.00105*urgency) : 0.00015);
             let blink = 1;
             if (hashNoise(Math.floor((tms+w.phase)/41)) < blinkChance) {
               const ph = ((tms+w.phase) % 210) / 210;
@@ -505,7 +501,9 @@
         requestAnimationFrame(tick);
       }
 
-      // --- Start (robust across Android/WebView + file://)
+      // -------------------------
+      // Start (robust)
+      // -------------------------
       function startAll(){
         buildMoire();
         buildWatchers();
@@ -516,7 +514,6 @@
 
       window.addEventListener("resize", resize, { passive:true });
 
-      // Wait for full load, then give one frame + small delay
       window.addEventListener("load", () => {
         requestAnimationFrame(() => {
           setTimeout(startAll, 80);
